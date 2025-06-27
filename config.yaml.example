@@ -1,0 +1,7 @@
+storage:
+  path: ./storage
+  database: ./storage.db
+
+api:
+  port: "8080"
+  key: "your-secure-api-key"

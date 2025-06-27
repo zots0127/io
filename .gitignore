@@ -1,0 +1,140 @@
+# Project instructions (private)
+CLAUDE.md
+
+# Binaries
+io
+io.exe
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+*.out
+
+# Go workspace files
+go.work
+go.work.sum
+
+# Storage directories and databases
+storage/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Configuration
+config.yaml
+!config.yaml.example
+
+# Logs
+*.log
+logs/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.*.swp
+.*.swo
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.pid
+tmp/
+temp/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Node.js (for examples)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+.yarn
+
+# Python (for examples)
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+
+# Test files
+test.txt
+test/
+tests/
+*_test.go
+coverage.out
+coverage.html
+*.cover
+*.prof
+
+# Build artifacts
+dist/
+build/
+bin/
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+
+# Archives
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+
+# Local environment files
+.env.local
+.env.*.local
+
+# Generated files
+*.generated.go
+*_gen.go
+
+# Vendor directory (if using dep or modules vendor)
+vendor/
+
+# Output from go mod download
+go.sum.backup
+
+# Git push scripts
+git-push.sh
+quick-push.sh
+push-to-github.sh
+github-complete.sh
