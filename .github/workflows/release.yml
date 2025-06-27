@@ -1,0 +1,144 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Linux
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: linux
+            goarch: arm
+            goarm: 7
+            suffix: linux-armv7
+          # macOS
+          - goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+          # Windows
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64.exe
+          - goos: windows
+            goarch: arm64
+            suffix: windows-arm64.exe
+          # FreeBSD
+          - goos: freebsd
+            goarch: amd64
+            suffix: freebsd-amd64
+          - goos: freebsd
+            goarch: arm64
+            suffix: freebsd-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Get dependencies
+        run: go mod download
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+        run: |
+          go build -ldflags="-s -w" -o io-${{ matrix.suffix }} .
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: io-${{ matrix.suffix }}
+          path: io-${{ matrix.suffix }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create checksums
+        run: |
+          cd artifacts
+          for dir in */; do
+            if [ -d "$dir" ]; then
+              cd "$dir"
+              sha256sum * > ../../checksums.txt || true
+              cd ..
+            fi
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/*/io-*
+            checksums.txt
+          body: |
+            ## Download
+
+            | Platform | Architecture | File |
+            |----------|--------------|------|
+            | Linux | x86_64 | `io-linux-amd64` |
+            | Linux | ARM64 | `io-linux-arm64` |
+            | Linux | ARMv7 | `io-linux-armv7` |
+            | macOS | Intel | `io-darwin-amd64` |
+            | macOS | Apple Silicon | `io-darwin-arm64` |
+            | Windows | x86_64 | `io-windows-amd64.exe` |
+            | Windows | ARM64 | `io-windows-arm64.exe` |
+            | FreeBSD | x86_64 | `io-freebsd-amd64` |
+            | FreeBSD | ARM64 | `io-freebsd-arm64` |
+
+            ## Installation
+
+            ### Linux/macOS/FreeBSD
+            ```bash
+            # Download the binary for your platform
+            wget https://github.com/zots0127/io/releases/download/${{ github.ref_name }}/io-YOUR_PLATFORM
+            
+            # Make it executable
+            chmod +x io-YOUR_PLATFORM
+            
+            # Move to PATH (optional)
+            sudo mv io-YOUR_PLATFORM /usr/local/bin/io
+            ```
+
+            ### Windows
+            Download the `.exe` file and run it directly, or add it to your PATH.
+
+            ## Verify checksums
+            ```bash
+            sha256sum -c checksums.txt
+            ```

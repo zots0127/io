@@ -3,6 +3,7 @@ CLAUDE.md
 
 # Binaries
 io
+io-*
 io.exe
 *.exe
 *.dll
