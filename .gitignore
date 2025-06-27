@@ -134,8 +134,9 @@ vendor/
 # Output from go mod download
 go.sum.backup
 
-# Git push scripts
+# Legacy scripts (replaced by cicd.sh)
 git-push.sh
 quick-push.sh
 push-to-github.sh
 github-complete.sh
+build.sh
