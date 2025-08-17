@@ -211,7 +211,7 @@ func (a *S3API) initiateMultipartUpload(c *gin.Context, bucket, key string) {
 
 func (a *S3API) uploadPart(c *gin.Context, bucket, key, uploadId, partNumberStr string) {
 	var partNumber int
-	fmt.Sscanf(partNumberStr, "%d", &partNumber)
+	_ = fmt.Sscanf(partNumberStr, "%d", &partNumber)
 	
 	// Verify upload exists
 	_, _, err := GetMultipartUpload(uploadId)
@@ -233,7 +233,7 @@ func (a *S3API) uploadPart(c *gin.Context, bucket, key, uploadId, partNumberStr 
 	
 	// Save part to temporary file
 	tempDir := filepath.Join(a.storage.basePath, "multipart", uploadId)
-	os.MkdirAll(tempDir, 0755)
+	_ = os.MkdirAll(tempDir, 0755)
 	
 	partPath := filepath.Join(tempDir, fmt.Sprintf("part-%d", partNumber))
 	if err := os.WriteFile(partPath, data, 0644); err != nil {
@@ -321,9 +321,9 @@ func (a *S3API) completeMultipartUpload(c *gin.Context, bucket, key, uploadId st
 	
 	// Get file size and calculate final ETag
 	stat, _ := os.Stat(tempFile.Name())
-	file.Seek(0, 0)
+	_, _ = file.Seek(0, 0)
 	md5Hash := md5.New()
-	io.Copy(md5Hash, file)
+	_, _ = io.Copy(md5Hash, file)
 	etag := hex.EncodeToString(md5Hash.Sum(nil))
 	
 	// Store S3 metadata
@@ -334,7 +334,7 @@ func (a *S3API) completeMultipartUpload(c *gin.Context, bucket, key, uploadId st
 	}
 	
 	// Clean up multipart upload
-	DeleteMultipartUpload(uploadId)
+	_ = DeleteMultipartUpload(uploadId)
 	
 	result := CompleteMultipartUploadResult{
 		Location: fmt.Sprintf("%s/%s/%s", c.Request.Host, bucket, key),

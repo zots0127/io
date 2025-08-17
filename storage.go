@@ -55,13 +55,13 @@ func (s *Storage) Store(reader io.Reader) (string, error) {
 	// It's a new file, so we need to move it to the target location
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
 		// Clean up the database entry since we couldn't create the directory
-		RemoveFile(sha1Hash)
+		_ = RemoveFile(sha1Hash)
 		return "", err
 	}
 	
 	if err := os.Rename(tempFileName, targetPath); err != nil {
 		// Clean up the database entry since we couldn't move the file
-		RemoveFile(sha1Hash)
+		_ = RemoveFile(sha1Hash)
 		return "", err
 	}
 	

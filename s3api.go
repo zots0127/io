@@ -151,7 +151,7 @@ func (a *S3API) validatePresignedURL(c *gin.Context) bool {
 	
 	// Parse expiry duration
 	expirySeconds := 0
-	fmt.Sscanf(expires, "%d", &expirySeconds)
+	_ = fmt.Sscanf(expires, "%d", &expirySeconds)
 	
 	// Check if URL has expired
 	now := time.Now()
@@ -241,7 +241,7 @@ func (a *S3API) listObjects(c *gin.Context) {
 	continuationToken := c.Query("continuation-token")
 	
 	if mk := c.Query("max-keys"); mk != "" {
-		fmt.Sscanf(mk, "%d", &maxKeys)
+		_ = fmt.Sscanf(mk, "%d", &maxKeys)
 	}
 	
 	// Get one extra object to determine if truncated
@@ -367,7 +367,7 @@ func (a *S3API) getObject(c *gin.Context) {
 	}
 	
 	// Stream file content
-	io.Copy(c.Writer, file)
+	_, _ = io.Copy(c.Writer, file)
 }
 
 func (a *S3API) deleteObject(c *gin.Context) {
