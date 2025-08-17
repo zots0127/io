@@ -13,6 +13,7 @@ func main() {
 	if err := InitDB(config.Storage.Database); err != nil {
 		log.Fatal("Failed to initialize database:", err)
 	}
+	defer CloseDB()
 	
 	if err := os.MkdirAll(config.Storage.Path, 0755); err != nil {
 		log.Fatal("Failed to create storage directory:", err)

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"log"
 	"os"
 
@@ -36,10 +38,30 @@ func LoadConfig() *Config {
 		return defaultConfig()
 	}
 	
+	// Override API key from environment variable if set
+	if envAPIKey := os.Getenv("IO_API_KEY"); envAPIKey != "" {
+		config.API.Key = envAPIKey
+	}
+	
+	// Hash the API key for internal use (still use plain key for comparison)
+	// This is just for logging purposes to avoid exposing the key
+	if config.API.Key != "" {
+		hasher := sha256.New()
+		hasher.Write([]byte(config.API.Key))
+		hashBytes := hasher.Sum(nil)[:8] // Use first 8 bytes for display
+		log.Printf("API Key configured (hash prefix: %s...)", hex.EncodeToString(hashBytes))
+	}
+	
 	return &config
 }
 
 func defaultConfig() *Config {
+	// Try to get API key from environment variable first
+	apiKey := os.Getenv("IO_API_KEY")
+	if apiKey == "" {
+		log.Fatal("API key must be set via IO_API_KEY environment variable or config file")
+	}
+	
 	return &Config{
 		Storage: struct {
 			Path     string `yaml:"path"`
@@ -53,7 +75,7 @@ func defaultConfig() *Config {
 			Key  string `yaml:"key"`
 		}{
 			Port: "8080",
-			Key:  "default-api-key",
+			Key:  apiKey,
 		},
 	}
 }

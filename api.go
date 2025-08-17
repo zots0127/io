@@ -3,9 +3,12 @@ package main
 import (
 	"io"
 	"net/http"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 )
+
+var apiSha1Regex = regexp.MustCompile("^[a-f0-9]{40}$")
 
 type API struct {
 	storage *Storage
@@ -61,6 +64,11 @@ func (a *API) storeFile(c *gin.Context) {
 func (a *API) getFile(c *gin.Context) {
 	sha1Hash := c.Param("sha1")
 	
+	if !apiSha1Regex.MatchString(sha1Hash) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SHA1 hash format"})
+		return
+	}
+	
 	file, err := a.storage.Retrieve(sha1Hash)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
@@ -69,11 +77,19 @@ func (a *API) getFile(c *gin.Context) {
 	defer file.Close()
 	
 	c.Header("Content-Type", "application/octet-stream")
-	io.Copy(c.Writer, file)
+	if _, err := io.Copy(c.Writer, file); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send file"})
+		return
+	}
 }
 
 func (a *API) deleteFile(c *gin.Context) {
 	sha1Hash := c.Param("sha1")
+	
+	if !apiSha1Regex.MatchString(sha1Hash) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SHA1 hash format"})
+		return
+	}
 	
 	if err := a.storage.Delete(sha1Hash); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -85,6 +101,12 @@ func (a *API) deleteFile(c *gin.Context) {
 
 func (a *API) checkExists(c *gin.Context) {
 	sha1Hash := c.Param("sha1")
+	
+	if !apiSha1Regex.MatchString(sha1Hash) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid SHA1 hash format"})
+		return
+	}
+	
 	exists := a.storage.Exists(sha1Hash)
 	c.JSON(http.StatusOK, gin.H{"exists": exists})
 }

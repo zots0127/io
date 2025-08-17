@@ -4,4 +4,5 @@ storage:
 
 api:
   port: "8080"
-  key: "your-secure-api-key"
+  # API key should be set via IO_API_KEY environment variable
+  # key: "set-via-environment-variable"

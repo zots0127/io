@@ -16,6 +16,16 @@ func InitDB(dbPath string) error {
 		return err
 	}
 	
+	// Configure connection pool
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(time.Hour)
+	
+	// Test connection
+	if err := db.Ping(); err != nil {
+		return err
+	}
+	
 	schema := `
 	CREATE TABLE IF NOT EXISTS files (
 		sha1 TEXT PRIMARY KEY,
@@ -33,7 +43,7 @@ func InitDB(dbPath string) error {
 
 func AddFile(sha1Hash string) error {
 	_, err := db.Exec(
-		"INSERT INTO files (sha1, ref_count) VALUES (?, 1)",
+		"INSERT OR IGNORE INTO files (sha1, ref_count) VALUES (?, 1)",
 		sha1Hash,
 	)
 	return err
@@ -80,4 +90,48 @@ func FileExists(sha1Hash string) (bool, error) {
 	var exists bool
 	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM files WHERE sha1 = ?)", sha1Hash).Scan(&exists)
 	return exists, err
+}
+
+// AddOrIncrementFile atomically adds a new file or increments ref count if it already exists
+func AddOrIncrementFile(sha1Hash string) (bool, error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	
+	// Try to insert the file
+	result, err := tx.Exec(
+		"INSERT OR IGNORE INTO files (sha1, ref_count) VALUES (?, 1)",
+		sha1Hash,
+	)
+	if err != nil {
+		return false, err
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	
+	// If insert didn't affect any rows, the file already exists
+	if rowsAffected == 0 {
+		// Increment the reference count
+		_, err = tx.Exec(
+			"UPDATE files SET ref_count = ref_count + 1, last_accessed = ? WHERE sha1 = ?",
+			time.Now(), sha1Hash,
+		)
+		if err != nil {
+			return false, err
+		}
+		return false, tx.Commit() // false = file already existed
+	}
+	
+	return true, tx.Commit() // true = new file was added
+}
+
+func CloseDB() {
+	if db != nil {
+		db.Close()
+	}
 }
