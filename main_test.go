@@ -62,7 +62,9 @@ s3:
   secret_key: "minioadmin"
   region: "us-east-1"
 `
-	os.WriteFile("test-config.yaml", []byte(config), 0644)
+	if err := os.WriteFile("test-config.yaml", []byte(config), 0644); err != nil {
+		panic(err)
+	}
 	os.Setenv("CONFIG_PATH", "test-config.yaml")
 	os.Setenv("IO_API_KEY", testAPIKey)
 }
@@ -94,7 +96,9 @@ func TestNativeAPIUpload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fw.Write(content)
+	if _, err := fw.Write(content); err != nil {
+		t.Fatal(err)
+	}
 	w.Close()
 	
 	req, err := http.NewRequest("POST", testNativeAPI+"/api/store", &b)
@@ -115,7 +119,9 @@ func TestNativeAPIUpload(t *testing.T) {
 	}
 	
 	var result map[string]string
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
 	
 	if sha1, ok := result["sha1"]; !ok || sha1 == "" {
 		t.Fatal("No SHA1 returned")
@@ -143,7 +149,9 @@ func TestNativeAPIExists(t *testing.T) {
 	defer resp.Body.Close()
 	
 	var result map[string]bool
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
 	
 	if exists, ok := result["exists"]; !ok || !exists {
 		t.Fatal("File should exist")
@@ -232,7 +240,7 @@ func TestS3CreateBucket(t *testing.T) {
 	// Cleanup
 	defer func() {
 		req, _ := http.NewRequest("DELETE", testS3API+"/"+bucketName, nil)
-		http.DefaultClient.Do(req)
+		_, _ = http.DefaultClient.Do(req)
 	}()
 }
 
@@ -419,7 +427,7 @@ func uploadTestFile(t *testing.T) string {
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
 	fw, _ := w.CreateFormFile("file", "test.txt")
-	fw.Write(content)
+	_, _ = fw.Write(content)
 	w.Close()
 	
 	req, _ := http.NewRequest("POST", testNativeAPI+"/api/store", &b)
@@ -430,7 +438,7 @@ func uploadTestFile(t *testing.T) string {
 	defer resp.Body.Close()
 	
 	var result map[string]string
-	json.NewDecoder(resp.Body).Decode(&result)
+	_ = json.NewDecoder(resp.Body).Decode(&result)
 	
 	return result["sha1"]
 }
@@ -456,7 +464,7 @@ func BenchmarkNativeUpload(b *testing.B) {
 		var buf bytes.Buffer
 		w := multipart.NewWriter(&buf)
 		fw, _ := w.CreateFormFile("file", "bench.txt")
-		fw.Write(content)
+		_, _ = fw.Write(content)
 		w.Close()
 		
 		req, _ := http.NewRequest("POST", testNativeAPI+"/api/store", &buf)

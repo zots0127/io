@@ -62,7 +62,9 @@ func DecrementRefCount(sha1Hash string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 	
 	_, err = tx.Exec(
 		"UPDATE files SET ref_count = ref_count - 1 WHERE sha1 = ?",
@@ -98,7 +100,9 @@ func AddOrIncrementFile(sha1Hash string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback()
+	}()
 	
 	// Try to insert the file
 	result, err := tx.Exec(
