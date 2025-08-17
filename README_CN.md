@@ -1,5 +1,9 @@
 # IO 存储服务
 
+[![Tests](https://github.com/zots0127/io/actions/workflows/test.yml/badge.svg)](https://github.com/zots0127/io/actions/workflows/test.yml)
+[![CI/CD](https://github.com/zots0127/io/actions/workflows/ci.yml/badge.svg)](https://github.com/zots0127/io/actions/workflows/ci.yml)
+[![Release](https://github.com/zots0127/io/actions/workflows/release.yml/badge.svg)](https://github.com/zots0127/io/releases)
+
 [English Documentation](./README.md)
 
 一个使用 Go 构建的轻量级文件存储服务，具备基于 SHA1 的内容去重和引用计数功能，可高效管理存储。

@@ -15,18 +15,96 @@ func main() {
 	}
 	defer CloseDB()
 	
+	// Initialize S3 tables if S3 mode is enabled
+	if config.API.Mode == "s3" || config.API.Mode == "hybrid" {
+		if err := InitS3Tables(); err != nil {
+			log.Fatal("Failed to initialize S3 tables:", err)
+		}
+		if err := InitMultipartUploadDB(); err != nil {
+			log.Fatal("Failed to initialize multipart tables:", err)
+		}
+	}
+	
 	if err := os.MkdirAll(config.Storage.Path, 0755); err != nil {
 		log.Fatal("Failed to create storage directory:", err)
 	}
 	
 	storage := NewStorage(config.Storage.Path)
-	api := NewAPI(storage, config.API.Key)
 	
-	router := gin.Default()
-	api.RegisterRoutes(router)
-	
-	log.Printf("Starting server on port %s", config.API.Port)
-	if err := router.Run(":" + config.API.Port); err != nil {
-		log.Fatal("Failed to start server:", err)
+	switch config.API.Mode {
+	case "native":
+		// Native API only
+		api := NewAPI(storage, config.API.Key)
+		router := gin.Default()
+		api.RegisterRoutes(router)
+		
+		log.Printf("Starting native API server on port %s", config.API.Port)
+		if err := router.Run(":" + config.API.Port); err != nil {
+			log.Fatal("Failed to start server:", err)
+		}
+		
+	case "s3":
+		// S3 API only
+		s3Config := &S3Config{
+			AccessKey: config.S3.AccessKey,
+			SecretKey: config.S3.SecretKey,
+			Region:    config.S3.Region,
+			Port:      config.S3.Port,
+		}
+		s3api := NewS3API(storage, s3Config)
+		router := gin.Default()
+		s3api.RegisterRoutes(router)
+		
+		log.Printf("Starting S3-compatible API server on port %s", config.S3.Port)
+		log.Printf("Access Key: %s", config.S3.AccessKey)
+		log.Printf("Region: %s", config.S3.Region)
+		if err := router.Run(":" + config.S3.Port); err != nil {
+			log.Fatal("Failed to start S3 server:", err)
+		}
+		
+	case "hybrid":
+		// Both APIs running on different ports
+		errChan := make(chan error, 2)
+		
+		// Start native API
+		go func() {
+			api := NewAPI(storage, config.API.Key)
+			router := gin.New()
+			router.Use(gin.Recovery())
+			api.RegisterRoutes(router)
+			
+			log.Printf("Starting native API server on port %s", config.API.Port)
+			if err := router.Run(":" + config.API.Port); err != nil {
+				errChan <- err
+			}
+		}()
+		
+		// Start S3 API
+		go func() {
+			s3Config := &S3Config{
+				AccessKey: config.S3.AccessKey,
+				SecretKey: config.S3.SecretKey,
+				Region:    config.S3.Region,
+				Port:      config.S3.Port,
+			}
+			s3api := NewS3API(storage, s3Config)
+			router := gin.New()
+			router.Use(gin.Recovery())
+			s3api.RegisterRoutes(router)
+			
+			log.Printf("Starting S3-compatible API server on port %s", config.S3.Port)
+			log.Printf("Access Key: %s", config.S3.AccessKey)
+			log.Printf("Region: %s", config.S3.Region)
+			if err := router.Run(":" + config.S3.Port); err != nil {
+				errChan <- err
+			}
+		}()
+		
+		// Wait for any error
+		err := <-errChan
+		log.Fatal("Server error:", err)
+		
+	default:
+		log.Fatalf("Unknown API mode: %s", config.API.Mode)
 	}
 }

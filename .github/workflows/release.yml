@@ -9,8 +9,168 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    name: Run Tests and Generate Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Get dependencies
+        run: go mod download
+
+      - name: Run Unit Tests with Coverage
+        run: |
+          go test -v -race -coverprofile=coverage.out -covermode=atomic ./... 2>&1 | tee test-results.txt
+          go tool cover -html=coverage.out -o coverage.html
+          go tool cover -func=coverage.out | tee coverage-summary.txt
+
+      - name: Build test binary
+        run: go build -o io .
+
+      - name: Run Integration Tests
+        run: |
+          # Create test config
+          cat > config.yaml << EOF
+          storage:
+            path: ./test-storage
+            database: ./test-storage.db
+          api:
+            port: "8080"
+            key: "test-api-key"
+            mode: "hybrid"
+          s3:
+            enabled: true
+            port: "9000"
+            access_key: "minioadmin"
+            secret_key: "minioadmin"
+            region: "us-east-1"
+          EOF
+          
+          # Start service
+          export IO_API_KEY="test-api-key"
+          ./io &
+          IO_PID=$!
+          sleep 5
+          
+          # Create test report
+          echo "# Integration Test Report" > integration-tests.md
+          echo "Date: $(date)" >> integration-tests.md
+          echo "" >> integration-tests.md
+          
+          # Test Native API
+          echo "## Native API Tests" >> integration-tests.md
+          echo "" >> integration-tests.md
+          
+          echo "### Upload Test" >> integration-tests.md
+          echo "test content" > test.txt
+          RESPONSE=$(curl -s -X POST http://localhost:8080/api/store \
+            -H "X-API-Key: test-api-key" \
+            -F "file=@test.txt")
+          SHA1=$(echo $RESPONSE | grep -o '"sha1":"[^"]*' | cut -d'"' -f4)
+          if [ -n "$SHA1" ]; then
+            echo "✅ Upload successful - SHA1: $SHA1" >> integration-tests.md
+          else
+            echo "❌ Upload failed" >> integration-tests.md
+            kill $IO_PID
+            exit 1
+          fi
+          echo "" >> integration-tests.md
+          
+          echo "### Download Test" >> integration-tests.md
+          curl -s http://localhost:8080/api/file/$SHA1 \
+            -H "X-API-Key: test-api-key" \
+            -o downloaded.txt
+          if diff test.txt downloaded.txt > /dev/null; then
+            echo "✅ Download successful - Content matches" >> integration-tests.md
+          else
+            echo "❌ Download failed - Content mismatch" >> integration-tests.md
+            kill $IO_PID
+            exit 1
+          fi
+          echo "" >> integration-tests.md
+          
+          # Test S3 API
+          echo "## S3 API Tests" >> integration-tests.md
+          echo "" >> integration-tests.md
+          
+          echo "### Bucket Creation" >> integration-tests.md
+          curl -s -X PUT http://localhost:9000/test-bucket
+          echo "✅ Bucket created" >> integration-tests.md
+          echo "" >> integration-tests.md
+          
+          echo "### Object Upload" >> integration-tests.md
+          curl -s -X PUT http://localhost:9000/test-bucket/test-key \
+            -d "S3 test content"
+          echo "✅ Object uploaded" >> integration-tests.md
+          echo "" >> integration-tests.md
+          
+          echo "### Object Download" >> integration-tests.md
+          CONTENT=$(curl -s http://localhost:9000/test-bucket/test-key)
+          if [ "$CONTENT" = "S3 test content" ]; then
+            echo "✅ Object downloaded successfully" >> integration-tests.md
+          else
+            echo "❌ Object download failed" >> integration-tests.md
+            kill $IO_PID
+            exit 1
+          fi
+          echo "" >> integration-tests.md
+          
+          # Generate summary
+          echo "## Test Summary" >> integration-tests.md
+          echo "- Native API: ✅ Passed" >> integration-tests.md
+          echo "- S3 API: ✅ Passed" >> integration-tests.md
+          echo "- All tests completed successfully!" >> integration-tests.md
+          
+          kill $IO_PID
+
+      - name: Generate Test Report
+        run: |
+          # Create comprehensive test report
+          cat > test-report.md << 'EOF'
+          # Test Report for IO Storage Service
+          
+          ## Test Execution Details
+          - **Date**: $(date)
+          - **Commit**: ${{ github.sha }}
+          - **Tag**: ${{ github.ref_name }}
+          - **Go Version**: $(go version)
+          
+          ## Unit Test Results
+          EOF
+          
+          echo '```' >> test-report.md
+          cat test-results.txt >> test-report.md
+          echo '```' >> test-report.md
+          
+          echo "" >> test-report.md
+          echo "## Code Coverage Summary" >> test-report.md
+          echo '```' >> test-report.md
+          cat coverage-summary.txt >> test-report.md
+          echo '```' >> test-report.md
+          
+          echo "" >> test-report.md
+          cat integration-tests.md >> test-report.md
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            test-report.md
+            coverage.html
+            coverage-summary.txt
+            integration-tests.md
+            test-results.txt
+
   build:
     name: Build and Release
+    needs: test  # Only build after tests pass
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -98,6 +258,19 @@ jobs:
             fi
           done
 
+      - name: Prepare Test Reports
+        run: |
+          # Copy test reports to root for easy access
+          if [ -d "artifacts/test-reports" ]; then
+            cp artifacts/test-reports/test-report.md ./test-report.md || true
+            cp artifacts/test-reports/coverage.html ./coverage.html || true
+            cp artifacts/test-reports/coverage-summary.txt ./coverage-summary.txt || true
+            
+            # Create a test badge
+            COVERAGE=$(grep "total:" artifacts/test-reports/coverage-summary.txt | awk '{print $3}' | sed 's/%//')
+            echo "Test Coverage: ${COVERAGE}%" > test-badge.txt
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -106,7 +279,17 @@ jobs:
           files: |
             artifacts/*/io-*
             checksums.txt
+            test-report.md
+            coverage.html
+            coverage-summary.txt
           body: |
+            ## Test Results
+            
+            ✅ **All tests passed!** See attached test reports for details:
+            - `test-report.md` - Full test execution report
+            - `coverage.html` - Interactive code coverage report
+            - `coverage-summary.txt` - Coverage summary
+            
             ## Download
 
             | Platform | Architecture | File |

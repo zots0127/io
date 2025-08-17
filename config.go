@@ -17,7 +17,15 @@ type Config struct {
 	API struct {
 		Port string `yaml:"port"`
 		Key  string `yaml:"key"`
+		Mode string `yaml:"mode"` // native, s3, or hybrid
 	} `yaml:"api"`
+	S3 struct {
+		Enabled   bool   `yaml:"enabled"`
+		Port      string `yaml:"port"`
+		AccessKey string `yaml:"access_key"`
+		SecretKey string `yaml:"secret_key"`
+		Region    string `yaml:"region"`
+	} `yaml:"s3"`
 }
 
 func LoadConfig() *Config {
@@ -38,9 +46,28 @@ func LoadConfig() *Config {
 		return defaultConfig()
 	}
 	
-	// Override API key from environment variable if set
+	// Override from environment variables if set
 	if envAPIKey := os.Getenv("IO_API_KEY"); envAPIKey != "" {
 		config.API.Key = envAPIKey
+	}
+	
+	if envS3AccessKey := os.Getenv("IO_S3_ACCESS_KEY"); envS3AccessKey != "" {
+		config.S3.AccessKey = envS3AccessKey
+	}
+	
+	if envS3SecretKey := os.Getenv("IO_S3_SECRET_KEY"); envS3SecretKey != "" {
+		config.S3.SecretKey = envS3SecretKey
+	}
+	
+	// Set defaults for S3 if not specified
+	if config.S3.Port == "" {
+		config.S3.Port = "9000"
+	}
+	if config.S3.Region == "" {
+		config.S3.Region = "us-east-1"
+	}
+	if config.API.Mode == "" {
+		config.API.Mode = "native"
 	}
 	
 	// Hash the API key for internal use (still use plain key for comparison)
@@ -73,9 +100,24 @@ func defaultConfig() *Config {
 		API: struct {
 			Port string `yaml:"port"`
 			Key  string `yaml:"key"`
+			Mode string `yaml:"mode"`
 		}{
 			Port: "8080",
 			Key:  apiKey,
+			Mode: "native",
+		},
+		S3: struct {
+			Enabled   bool   `yaml:"enabled"`
+			Port      string `yaml:"port"`
+			AccessKey string `yaml:"access_key"`
+			SecretKey string `yaml:"secret_key"`
+			Region    string `yaml:"region"`
+		}{
+			Enabled:   false,
+			Port:      "9000",
+			AccessKey: "minioadmin",
+			SecretKey: "minioadmin",
+			Region:    "us-east-1",
 		},
 	}
 }

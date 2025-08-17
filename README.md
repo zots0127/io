@@ -1,5 +1,9 @@
 # IO Storage Service
 
+[![Tests](https://github.com/zots0127/io/actions/workflows/test.yml/badge.svg)](https://github.com/zots0127/io/actions/workflows/test.yml)
+[![CI/CD](https://github.com/zots0127/io/actions/workflows/ci.yml/badge.svg)](https://github.com/zots0127/io/actions/workflows/ci.yml)
+[![Release](https://github.com/zots0127/io/actions/workflows/release.yml/badge.svg)](https://github.com/zots0127/io/releases)
+
 [中文文档](./README_CN.md)
 
 A lightweight file storage service built with Go, featuring SHA1-based content deduplication and reference counting for efficient storage management.

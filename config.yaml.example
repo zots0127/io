@@ -6,3 +6,14 @@ api:
   port: "8080"
   # API key should be set via IO_API_KEY environment variable
   # key: "set-via-environment-variable"
+  mode: "hybrid"  # Options: native, s3, hybrid
+
+# S3-compatible API configuration
+s3:
+  enabled: true
+  port: "9000"
+  # S3 credentials can be set via environment variables:
+  # IO_S3_ACCESS_KEY and IO_S3_SECRET_KEY
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  region: "us-east-1"

@@ -1,0 +1,128 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        go: ['1.20', '1.21']
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: Install dependencies
+        run: go mod download
+      
+      - name: Run Tests
+        run: |
+          # Create test script
+          cat > run_tests.sh << 'EOF'
+          #!/bin/bash
+          set -e
+          
+          echo "=== Running Unit Tests ==="
+          # First run unit tests without integration tests
+          go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+          
+          echo "=== Building Binary ==="
+          go build -o io .
+          
+          echo "=== Setting up Test Environment ==="
+          cat > config.yaml << EOC
+          storage:
+            path: ./test-storage
+            database: ./test-storage.db
+          api:
+            port: "8080"
+            key: "test-api-key"
+            mode: "hybrid"
+          s3:
+            enabled: true
+            port: "9000"
+            access_key: "minioadmin"
+            secret_key: "minioadmin"
+            region: "us-east-1"
+          EOC
+          
+          echo "=== Starting IO Service ==="
+          export IO_API_KEY="test-api-key"
+          ./io &
+          IO_PID=$!
+          sleep 5
+          
+          echo "=== Testing Native API ==="
+          # Test file upload
+          echo "test content" > test.txt
+          RESPONSE=$(curl -s -X POST http://localhost:8080/api/store \
+            -H "X-API-Key: test-api-key" \
+            -F "file=@test.txt")
+          echo "Upload response: $RESPONSE"
+          SHA1=$(echo $RESPONSE | grep -o '"sha1":"[^"]*' | cut -d'"' -f4)
+          
+          if [ -z "$SHA1" ]; then
+            echo "Failed to upload file"
+            kill $IO_PID 2>/dev/null
+            exit 1
+          fi
+          
+          # Test file download
+          curl -s http://localhost:8080/api/file/$SHA1 \
+            -H "X-API-Key: test-api-key" \
+            -o downloaded.txt
+          
+          if ! diff test.txt downloaded.txt; then
+            echo "Downloaded content doesn't match!"
+            kill $IO_PID 2>/dev/null
+            exit 1
+          fi
+          
+          echo "=== Testing S3 API ==="
+          # Create bucket
+          curl -s -X PUT http://localhost:9000/test-bucket
+          
+          # Upload object
+          curl -s -X PUT http://localhost:9000/test-bucket/test-key \
+            -d "S3 test content"
+          
+          # Get object
+          curl -s http://localhost:9000/test-bucket/test-key -o s3-download.txt
+          
+          if [ ! -s s3-download.txt ]; then
+            echo "Failed to download S3 object"
+            kill $IO_PID 2>/dev/null
+            exit 1
+          fi
+          
+          echo "=== All tests passed! ==="
+          kill $IO_PID 2>/dev/null
+          EOF
+          
+          chmod +x run_tests.sh
+          ./run_tests.sh
+      
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.go == '1.21'
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.txt
