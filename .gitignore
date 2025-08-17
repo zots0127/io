@@ -85,13 +85,10 @@ venv/
 .env
 .venv
 
-# Test files
-test.txt
-test/
-tests/
-*_test.go
+# Test coverage outputs
 coverage.out
 coverage.html
+coverage.txt
 *.cover
 *.prof
 
