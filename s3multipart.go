@@ -211,7 +211,7 @@ func (a *S3API) initiateMultipartUpload(c *gin.Context, bucket, key string) {
 
 func (a *S3API) uploadPart(c *gin.Context, bucket, key, uploadId, partNumberStr string) {
 	var partNumber int
-	_ = fmt.Sscanf(partNumberStr, "%d", &partNumber)
+	_, _ = fmt.Sscanf(partNumberStr, "%d", &partNumber)
 	
 	// Verify upload exists
 	_, _, err := GetMultipartUpload(uploadId)
