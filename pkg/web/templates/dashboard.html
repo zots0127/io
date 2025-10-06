@@ -1,0 +1,497 @@
+{{define "content"}}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshDashboard()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportStats()">
+                <i class="fas fa-download"></i> Export
+            </button>
+        </div>
+        <div class="btn-group">
+            <button type="button" class="btn btn-sm btn-primary" onclick="showUploadModal()">
+                <i class="fas fa-cloud-upload-alt"></i> Quick Upload
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2 card-stats">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Total Files
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalFiles">{{.stats.totalFiles}}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-folder fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2 card-stats">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Storage Used
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="storageUsed">{{.stats.totalSize}}</div>
+                        <div class="progress progress-sm mt-2">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{.stats.storageUsed}}%"></div>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-hdd fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2 card-stats">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Today's Uploads
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="todayUploads">{{.stats.todayUploads}}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-cloud-upload-alt fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2 card-stats">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Active Batches
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="activeBatches">{{.stats.activeBatches}}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-tasks fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-xl-8 col-lg-7">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Upload Activity</h6>
+                <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow">
+                        <a class="dropdown-item" href="#" onclick="changeChartRange('7d')">Last 7 days</a>
+                        <a class="dropdown-item" href="#" onclick="changeChartRange('30d')">Last 30 days</a>
+                        <a class="dropdown-item" href="#" onclick="changeChartRange('90d')">Last 90 days</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="chart-area">
+                    <canvas id="uploadChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4 col-lg-5">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">File Types</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-pie pt-4 pb-2">
+                    <canvas id="fileTypeChart"></canvas>
+                </div>
+                <div class="mt-4 text-center small">
+                    <span class="mr-2">
+                        <i class="fas fa-circle text-primary"></i> Images
+                    </span>
+                    <span class="mr-2">
+                        <i class="fas fa-circle text-success"></i> Documents
+                    </span>
+                    <span class="mr-2">
+                        <i class="fas fa-circle text-info"></i> Videos
+                    </span>
+                    <span class="mr-2">
+                        <i class="fas fa-circle text-warning"></i> Other
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity and System Info -->
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Recent Activity</h6>
+            </div>
+            <div class="card-body">
+                <div class="timeline" id="recentActivity">
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-primary"></div>
+                        <div class="timeline-content">
+                            <h6 class="timeline-title">File Uploaded</h6>
+                            <p class="timeline-text">
+                                <strong>document.pdf</strong> (2.3 MB) uploaded successfully
+                            </p>
+                            <small class="text-muted">2 minutes ago</small>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-success"></div>
+                        <div class="timeline-content">
+                            <h6 class="timeline-title">Batch Operation Completed</h6>
+                            <p class="timeline-text">
+                                Batch upload of 25 files completed successfully
+                            </p>
+                            <small class="text-muted">15 minutes ago</small>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-warning"></div>
+                        <div class="timeline-content">
+                            <h6 class="timeline-title">Storage Warning</h6>
+                            <p class="timeline-text">
+                                Storage usage reached 75% capacity
+                            </p>
+                            <small class="text-muted">1 hour ago</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">System Information</h6>
+            </div>
+            <div class="card-body">
+                <div class="row no-gutters align-items-center mb-3">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">System Uptime</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{.stats.systemUptime}}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-clock fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+
+                <div class="row no-gutters align-items-center mb-3">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Avg Upload Time</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{.stats.avgUploadTime}}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-tachometer-alt fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+
+                <div class="row no-gutters align-items-center mb-3">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Error Rate</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{printf "%.2f%%" (mul .stats.errorRate 100)}}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Last Backup</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{.stats.lastBackup}}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-database fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Active Batch Operations -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">Active Batch Operations</h6>
+                <a href="{{.basePath}}/batch" class="btn btn-sm btn-primary">View All</a>
+            </div>
+            <div class="card-body">
+                <div id="activeBatchesList">
+                    <!-- Active batches will be loaded here via JavaScript -->
+                    <div class="text-center text-muted">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+                        <p>Loading active batch operations...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    position: relative;
+    padding: 0;
+    list-style: none;
+}
+.timeline-item {
+    position: relative;
+    padding-left: 40px;
+    margin-bottom: 20px;
+}
+.timeline-marker {
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+.timeline-content {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 3px solid #e9ecef;
+}
+.timeline-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+.timeline-text {
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+.border-left-primary { border-left: 4px solid #4e73df !important; }
+.border-left-success { border-left: 4px solid #1cc88a !important; }
+.border-left-info { border-left: 4px solid #36b9cc !important; }
+.border-left-warning { border-left: 4px solid #f6c23e !important; }
+</style>
+
+<script>
+// Initialize charts
+document.addEventListener('DOMContentLoaded', function() {
+    initializeUploadChart();
+    initializeFileTypeChart();
+    loadActiveBatches();
+
+    // Refresh data every 30 seconds
+    setInterval(refreshDashboard, 30000);
+});
+
+function initializeUploadChart() {
+    const ctx = document.getElementById('uploadChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Files Uploaded',
+                data: [65, 59, 80, 81, 56, 55, 40],
+                borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                tension: 0.4
+            }, {
+                label: 'Storage Used (MB)',
+                data: [28, 48, 40, 19, 86, 27, 90],
+                borderColor: '#1cc88a',
+                backgroundColor: 'rgba(28, 200, 138, 0.05)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function initializeFileTypeChart() {
+    const ctx = document.getElementById('fileTypeChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Images', 'Documents', 'Videos', 'Other'],
+            datasets: [{
+                data: [300, 450, 100, 384],
+                backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+function loadActiveBatches() {
+    fetch('{{.basePath}}/api/batch/active')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderActiveBatches(data.data);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading active batches:', error);
+            document.getElementById('activeBatchesList').innerHTML = `
+                <div class="text-center text-muted">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                    <p>Unable to load active batch operations</p>
+                </div>
+            `;
+        });
+}
+
+function renderActiveBatches(batches) {
+    const container = document.getElementById('activeBatchesList');
+
+    if (batches.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-check-circle fa-2x mb-2 text-success"></i>
+                <p>No active batch operations</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = batches.map(batch => `
+        <div class="batch-item mb-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">Batch #${batch.task_id}</h6>
+                    <small class="text-muted">Operation: ${batch.operation}</small>
+                </div>
+                <div class="text-right">
+                    <span class="badge bg-${getStatusColor(batch.status)}">${batch.status}</span>
+                </div>
+            </div>
+            <div class="progress mt-2">
+                <div class="progress-bar" role="progressbar"
+                     style="width: ${batch.progress}%"
+                     aria-valuenow="${batch.progress}"
+                     aria-valuemin="0"
+                     aria-valuemax="100">
+                    ${batch.progress}%
+                </div>
+            </div>
+            <div class="d-flex justify-content-between mt-1">
+                <small class="text-muted">${batch.processed} / ${batch.total} items</small>
+                <small class="text-muted">Started: ${new Date(batch.created_at).toLocaleString()}</small>
+            </div>
+        </div>
+    `).join('');
+}
+
+function getStatusColor(status) {
+    switch(status) {
+        case 'processing': return 'primary';
+        case 'completed': return 'success';
+        case 'failed': return 'danger';
+        case 'cancelled': return 'warning';
+        default: return 'secondary';
+    }
+}
+
+function refreshDashboard() {
+    showLoading();
+    Promise.all([
+        fetch('{{.basePath}}/api/stats').then(r => r.json()),
+        fetch('{{.basePath}}/api/storage/stats').then(r => r.json()),
+        loadActiveBatches()
+    ]).then(([stats, storage]) => {
+        if (stats.success) {
+            updateStatCards(stats.data);
+        }
+        if (storage.success) {
+            updateStorageStats(storage.data);
+        }
+    }).catch(error => {
+        console.error('Error refreshing dashboard:', error);
+        showAlert('Failed to refresh dashboard', 'danger');
+    }).finally(() => {
+        hideLoading();
+    });
+}
+
+function updateStatCards(stats) {
+    document.getElementById('totalFiles').textContent = stats.totalFiles.toLocaleString();
+    document.getElementById('storageUsed').textContent = stats.totalSize;
+    document.getElementById('todayUploads').textContent = stats.todayUploads;
+    document.getElementById('activeBatches').textContent = stats.activeBatches;
+}
+
+function updateStorageStats(stats) {
+    const storagePercent = (stats.usedSpace / stats.totalSpace * 100).toFixed(1);
+    document.querySelector('.progress-bar.bg-success').style.width = storagePercent + '%';
+}
+
+function changeChartRange(range) {
+    // Implement chart range change
+    showAlert(`Changed chart range to: ${range}`, 'info');
+}
+
+function exportStats() {
+    // Implement stats export
+    showAlert('Stats export feature coming soon!', 'info');
+}
+
+function showUploadModal() {
+    // Redirect to upload page for now
+    window.location.href = '{{.basePath}}/files/upload';
+}
+</script>
+{{end}}

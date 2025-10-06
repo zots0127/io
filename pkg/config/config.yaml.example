@@ -1,19 +1,125 @@
-storage:
-  path: ./storage
-  database: ./storage.db
+# IO Storage Service Configuration Example
+# Copy this file to config.yaml and customize as needed
 
-api:
+# Server configuration
+server:
+  host: "0.0.0.0"
   port: "8080"
-  # API key should be set via IO_API_KEY environment variable
-  # key: "set-via-environment-variable"
-  mode: "hybrid"  # Options: native, s3, hybrid
+  read_timeout: "30s"
+  write_timeout: "30s"
+  idle_timeout: "120s"
+  tls:
+    enabled: false
+    cert_file: ""
+    key_file: ""
+    auto_cert: false
 
-# S3-compatible API configuration
+# Storage configuration
+storage:
+  path: "./storage"
+  max_file_size: 104857600  # 100MB
+  allowed_types: ["*"]  # Allow all file types, or specify like ["jpg", "png", "pdf"]
+  temp_dir: "./temp"
+  cleanup_interval: "1h"
+  max_storage_size: 10737418240  # 10GB
+
+# API configuration
+api:
+  # Set API key via API_KEY environment variable for security
+  key: ""
+  mode: "native"  # Options: native, s3, hybrid
+  version: "1.2.0"
+  enable_profiler: false
+
+  # Rate limiting configuration
+  rate_limit:
+    enabled: true
+    requests_per_minute: 60
+    burst_size: 10
+    skip_paths: ["/health", "/metrics"]
+
+  # CORS configuration
+  cors:
+    enabled: true
+    allowed_origins: ["*"]
+    allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed_headers: ["Origin", "Content-Type", "Accept", "Authorization"]
+    exposed_headers: []
+    allow_credentials: false
+    max_age: 86400
+
+# S3-compatible storage configuration
 s3:
-  enabled: true
+  enabled: false
   port: "9000"
-  # S3 credentials can be set via environment variables:
-  # IO_S3_ACCESS_KEY and IO_S3_SECRET_KEY
+  # Set credentials via environment variables:
+  # S3_ACCESS_KEY and S3_SECRET_KEY
   access_key: "minioadmin"
   secret_key: "minioadmin"
   region: "us-east-1"
+  bucket: "io-storage"
+  endpoint: ""
+  use_ssl: false
+
+# Database configuration
+database:
+  type: "sqlite"  # Options: sqlite, postgres, mysql
+  host: "localhost"
+  port: 5432
+  name: "./storage.db"
+  user: ""
+  password: ""
+  ssl_mode: "disable"
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: "1h"
+
+# Security configuration
+security:
+  enable_auth: false
+  # Set JWT secret via JWT_SECRET environment variable
+  jwt_secret: ""
+  token_expiry: "24h"
+  enable_https: false
+  trusted_proxies: []
+  enable_csrf: true
+  # Set session secret via SESSION_SECRET environment variable
+  session_secret: ""
+  max_login_attempts: 5
+  lockout_duration: "15m"
+
+# Logging configuration
+logging:
+  level: "info"  # Options: debug, info, warn, error, fatal
+  format: "json"  # Options: json, text
+  output: "stdout"  # Options: stdout, stderr, file
+  file: ""  # Path to log file when output is "file"
+  max_size: 100  # MB
+  max_backups: 3
+  max_age: 28  # days
+  compress: true
+  enable_request_id: true
+  enable_stack_trace: false
+
+# Metrics configuration
+metrics:
+  enabled: true
+  path: "/metrics"
+  port: "9090"
+  namespace: "io"
+  subsystem: "api"
+
+# Feature flags
+features:
+  enable_web_ui: true
+  enable_batch_ops: true
+  enable_monitoring: true
+  enable_backup: true
+  enable_versioning: false
+  enable_compression: true
+
+# Environment-specific overrides:
+# - Use environment variables to override any configuration value
+# - Environment variables should be uppercase and use underscores
+# - Examples: SERVER_PORT=8081, STORAGE_PATH=/data/storage
+# - Set CONFIG_PATH environment variable to specify config file location

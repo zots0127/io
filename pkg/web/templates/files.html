@@ -1,0 +1,665 @@
+{{define "content"}}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Files</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshFiles()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleView()">
+                <i class="fas fa-th"></i> Toggle View
+            </button>
+        </div>
+        <div class="btn-group">
+            <a href="{{.basePath}}/files/upload" class="btn btn-sm btn-primary">
+                <i class="fas fa-cloud-upload-alt"></i> Upload Files
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-body">
+                <form id="searchForm" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="searchInput" class="form-label">Search Files</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchInput"
+                                   placeholder="Search by filename or SHA1..." value="{{.search}}">
+                            <button class="btn btn-outline-secondary" type="submit">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="sortBy" class="form-label">Sort By</label>
+                        <select class="form-select" id="sortBy">
+                            <option value="created_at" {{if eq .sortBy "created_at"}}selected{{end}}>Created Date</option>
+                            <option value="filename" {{if eq .sortBy "filename"}}selected{{end}}>Filename</option>
+                            <option value="size" {{if eq .sortBy "size"}}selected{{end}}>Size</option>
+                            <option value="content_type" {{if eq .sortBy "content_type"}}selected{{end}}>Type</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="sortOrder" class="form-label">Order</label>
+                        <select class="form-select" id="sortOrder">
+                            <option value="desc" {{if eq .sortOrder "desc"}}selected{{end}}>Descending</option>
+                            <option value="asc" {{if eq .sortOrder "asc"}}selected{{end}}>Ascending</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="fileType" class="form-label">File Type</label>
+                        <select class="form-select" id="fileType">
+                            <option value="">All Types</option>
+                            <option value="image">Images</option>
+                            <option value="document">Documents</option>
+                            <option value="video">Videos</option>
+                            <option value="audio">Audio</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-outline-primary" onclick="clearFilters()">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- File Actions Bar -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                    <label class="form-check-label" for="selectAll">Select All</label>
+                </div>
+                <div class="btn-group btn-group-sm ms-3" id="bulkActions" style="display: none;">
+                    <button type="button" class="btn btn-outline-danger" onclick="bulkDelete()">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" onclick="bulkDownload()">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="bulkShare()">
+                        <i class="fas fa-share"></i> Share
+                    </button>
+                </div>
+            </div>
+            <div>
+                <span class="text-muted" id="fileCount">Loading files...</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Files List/Table -->
+<div class="card shadow">
+    <div class="card-body p-0">
+        <!-- Table View -->
+        <div id="tableView" class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="40"></th>
+                        <th>File</th>
+                        <th>Size</th>
+                        <th>Type</th>
+                        <th>SHA1</th>
+                        <th>Created</th>
+                        <th width="120">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="filesTableBody">
+                    <tr>
+                        <td colspan="7" class="text-center py-4">
+                            <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+                            <p class="text-muted">Loading files...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Grid View -->
+        <div id="gridView" class="p-3" style="display: none;">
+            <div class="row" id="filesGridContainer">
+                <!-- Grid items will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+<div class="row mt-4">
+    <div class="col-12">
+        <nav aria-label="Files pagination">
+            <ul class="pagination justify-content-center" id="pagination">
+                <!-- Pagination will be generated here -->
+            </ul>
+        </nav>
+    </div>
+</div>
+
+<!-- File Details Modal -->
+<div class="modal fade" id="fileDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">File Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="fileDetailsContent">
+                <!-- File details will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" onclick="downloadFile()">Download</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Share File Modal -->
+<div class="modal fade" id="shareFileModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Share File</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="shareLink" class="form-label">Share Link</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="shareLink" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyShareLink()">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="shareExpiry" class="form-label">Link Expiry</label>
+                    <select class="form-select" id="shareExpiry">
+                        <option value="1h">1 Hour</option>
+                        <option value="24h">24 Hours</option>
+                        <option value="7d">7 Days</option>
+                        <option value="30d">30 Days</option>
+                        <option value="never">Never</option>
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="requirePassword" checked>
+                    <label class="form-check-label" for="requirePassword">
+                        Require password
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="generateShareLink()">Generate Link</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.file-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+}
+.file-item {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.file-item:hover {
+    border-color: #007bff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.file-item.selected {
+    background-color: #e3f2fd;
+    border-color: #007bff;
+}
+.grid-file-item {
+    text-align: center;
+    padding: 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    transition: all 0.2s;
+    cursor: pointer;
+    min-height: 180px;
+}
+.grid-file-item:hover {
+    border-color: #007bff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.grid-file-item.selected {
+    background-color: #e3f2fd;
+    border-color: #007bff;
+}
+.file-thumbnail {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 10px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+</style>
+
+<script>
+let currentView = 'table';
+let selectedFiles = new Set();
+let currentPage = {{.pageParam}};
+let currentLimit = {{.limitParam}};
+let totalPages = 1;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadFiles();
+
+    // Search form submission
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        currentPage = 1;
+        loadFiles();
+    });
+
+    // Filter changes
+    ['sortBy', 'sortOrder', 'fileType'].forEach(id => {
+        document.getElementById(id).addEventListener('change', function() {
+            currentPage = 1;
+            loadFiles();
+        });
+    });
+});
+
+function loadFiles() {
+    showLoading();
+
+    const params = new URLSearchParams({
+        page: currentPage,
+        limit: currentLimit,
+        search: document.getElementById('searchInput').value,
+        sort: document.getElementById('sortBy').value,
+        order: document.getElementById('sortOrder').value,
+        type: document.getElementById('fileType').value
+    });
+
+    fetch('{{.basePath}}/api/files/list?' + params.toString())
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderFiles(data.data.files);
+                updatePagination(data.data.total, data.data.page, data.data.limit);
+                updateFileCount(data.data.total, data.data.page, data.data.limit);
+            } else {
+                showAlert('Failed to load files', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading files:', error);
+            showAlert('Failed to load files', 'danger');
+        })
+        .finally(() => {
+            hideLoading();
+        });
+}
+
+function renderFiles(files) {
+    if (currentView === 'table') {
+        renderTableView(files);
+    } else {
+        renderGridView(files);
+    }
+}
+
+function renderTableView(files) {
+    const tbody = document.getElementById('filesTableBody');
+
+    if (files.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-4">
+                    <i class="fas fa-folder-open fa-2x mb-2 text-muted"></i>
+                    <p class="text-muted">No files found</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = files.map(file => `
+        <tr>
+            <td>
+                <input type="checkbox" class="form-check-input file-checkbox"
+                       value="${file.sha1}" onchange="updateBulkActions()">
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <i class="fas ${getFileIcon(file.content_type)} file-icon"></i>
+                    <div>
+                        <div class="fw-medium">${file.filename}</div>
+                        <small class="text-muted">${truncateText(file.sha1, 12)}</small>
+                    </div>
+                </div>
+            </td>
+            <td>${formatBytes(file.size)}</td>
+            <td><span class="badge bg-light text-dark">${file.content_type || 'Unknown'}</span></td>
+            <td><code class="small">${truncateText(file.sha1, 8)}</code></td>
+            <td><small>${formatDate(file.created_at)}</small></td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-primary" onclick="showFileDetails('${file.sha1}')" title="Details">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-success" onclick="downloadFile('${file.sha1}')" title="Download">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-warning" onclick="shareFile('${file.sha1}')" title="Share">
+                        <i class="fas fa-share"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger" onclick="deleteFile('${file.sha1}')" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function renderGridView(files) {
+    const container = document.getElementById('filesGridContainer');
+
+    if (files.length === 0) {
+        container.innerHTML = `
+            <div class="col-12 text-center py-4">
+                <i class="fas fa-folder-open fa-3x mb-3 text-muted"></i>
+                <p class="text-muted">No files found</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = files.map(file => `
+        <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+            <div class="grid-file-item" onclick="selectFile('${file.sha1}')">
+                <input type="checkbox" class="form-check-input position-absolute top-0 end-0 m-2"
+                       value="${file.sha1}" onchange="updateBulkActions()">
+                <div class="file-thumbnail">
+                    ${getFileThumbnail(file.content_type, file.sha1)}
+                </div>
+                <h6 class="text-truncate mb-1">${file.filename}</h6>
+                <small class="text-muted">${formatBytes(file.size)}</small>
+                <div class="mt-2">
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary" onclick="event.stopPropagation(); showFileDetails('${file.sha1}')" title="Details">
+                            <i class="fas fa-info-circle"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-success" onclick="event.stopPropagation(); downloadFile('${file.sha1}')" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function toggleView() {
+    currentView = currentView === 'table' ? 'grid' : 'table';
+    document.getElementById('tableView').style.display = currentView === 'table' ? 'block' : 'none';
+    document.getElementById('gridView').style.display = currentView === 'grid' ? 'block' : 'none';
+    loadFiles();
+}
+
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll').checked;
+    const checkboxes = document.querySelectorAll('.file-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = selectAll;
+        if (selectAll) {
+            selectedFiles.add(cb.value);
+        } else {
+            selectedFiles.delete(cb.value);
+        }
+    });
+    updateBulkActions();
+}
+
+function selectFile(sha1) {
+    const checkbox = document.querySelector(`input[value="${sha1}"]`);
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        if (checkbox.checked) {
+            selectedFiles.add(sha1);
+        } else {
+            selectedFiles.delete(sha1);
+        }
+        updateBulkActions();
+    }
+}
+
+function updateBulkActions() {
+    const checkboxes = document.querySelectorAll('.file-checkbox:checked');
+    selectedFiles.clear();
+    checkboxes.forEach(cb => selectedFiles.add(cb.value));
+
+    const bulkActions = document.getElementById('bulkActions');
+    const selectAll = document.getElementById('selectAll');
+
+    if (selectedFiles.size > 0) {
+        bulkActions.style.display = 'inline-flex';
+    } else {
+        bulkActions.style.display = 'none';
+    }
+
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.file-checkbox');
+    selectAll.checked = allCheckboxes.length > 0 && selectedFiles.size === allCheckboxes.length;
+}
+
+function bulkDelete() {
+    if (selectedFiles.size === 0) return;
+
+    showConfirm(`Are you sure you want to delete ${selectedFiles.size} file(s)?`, function() {
+        // Implement bulk delete
+        showAlert('Bulk delete feature coming soon!', 'info');
+    });
+}
+
+function bulkDownload() {
+    if (selectedFiles.size === 0) return;
+    showAlert('Bulk download feature coming soon!', 'info');
+}
+
+function bulkShare() {
+    if (selectedFiles.size === 0) return;
+    showAlert('Bulk share feature coming soon!', 'info');
+}
+
+function showFileDetails(sha1) {
+    // Fetch file details and show modal
+    const modal = new bootstrap.Modal(document.getElementById('fileDetailsModal'));
+    document.getElementById('fileDetailsContent').innerHTML = `
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+            <p class="text-muted">Loading file details...</p>
+        </div>
+    `;
+    modal.show();
+
+    // Fetch actual file details
+    // fetch(`{{.basePath}}/api/files/${sha1}`)
+    //     .then(response => response.json())
+    //     .then(data => {
+    //         // Render file details
+    //     });
+}
+
+function downloadFile(sha1) {
+    window.open(`{{.basePath}}/api/files/${sha1}/download`, '_blank');
+}
+
+function shareFile(sha1) {
+    const modal = new bootstrap.Modal(document.getElementById('shareFileModal'));
+    document.getElementById('shareLink').value = `{{.basePath}}/files/${sha1}`;
+    modal.show();
+}
+
+function deleteFile(sha1) {
+    showConfirm('Are you sure you want to delete this file?', function() {
+        fetch(`{{.basePath}}/api/files/${sha1}`, { method: 'DELETE' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('File deleted successfully', 'success');
+                    loadFiles();
+                } else {
+                    showAlert('Failed to delete file', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting file:', error);
+                showAlert('Failed to delete file', 'danger');
+            });
+    });
+}
+
+function copyShareLink() {
+    const shareLink = document.getElementById('shareLink');
+    shareLink.select();
+    document.execCommand('copy');
+    showAlert('Share link copied to clipboard', 'success');
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('sortBy').value = 'created_at';
+    document.getElementById('sortOrder').value = 'desc';
+    document.getElementById('fileType').value = '';
+    currentPage = 1;
+    loadFiles();
+}
+
+function refreshFiles() {
+    loadFiles();
+}
+
+function updatePagination(total, page, limit) {
+    totalPages = Math.ceil(total / limit);
+    const pagination = document.getElementById('pagination');
+
+    if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+
+    // Previous button
+    html += `<li class="page-item ${page <= 1 ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="changePage(${page - 1})">Previous</a>
+    </li>`;
+
+    // Page numbers
+    for (let i = 1; i <= Math.min(totalPages, 10); i++) {
+        html += `<li class="page-item ${i === page ? 'active' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+        </li>`;
+    }
+
+    // Next button
+    html += `<li class="page-item ${page >= totalPages ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="changePage(${page + 1})">Next</a>
+    </li>`;
+
+    pagination.innerHTML = html;
+}
+
+function changePage(page) {
+    if (page < 1 || page > totalPages) return;
+    currentPage = page;
+    loadFiles();
+}
+
+function updateFileCount(total, page, limit) {
+    const start = (page - 1) * limit + 1;
+    const end = Math.min(page * limit, total);
+    document.getElementById('fileCount').textContent =
+        `Showing ${start}-${end} of ${total} files`;
+}
+
+// Utility functions
+function getFileIcon(contentType) {
+    if (!contentType) return 'fa-file';
+
+    if (contentType.startsWith('image/')) return 'fa-file-image';
+    if (contentType.startsWith('video/')) return 'fa-file-video';
+    if (contentType.startsWith('audio/')) return 'fa-file-audio';
+    if (contentType.includes('pdf')) return 'fa-file-pdf';
+    if (contentType.includes('text') || contentType.includes('document')) return 'fa-file-alt';
+    if (contentType.includes('spreadsheet') || contentType.includes('excel')) return 'fa-file-excel';
+    if (contentType.includes('presentation') || contentType.includes('powerpoint')) return 'fa-file-powerpoint';
+    if (contentType.includes('zip') || contentType.includes('compressed')) return 'fa-file-archive';
+
+    return 'fa-file';
+}
+
+function getFileThumbnail(contentType, sha1) {
+    if (contentType && contentType.startsWith('image/')) {
+        return `<img src="{{.basePath}}/api/files/${sha1}/thumbnail" class="file-thumbnail" alt="File thumbnail">`;
+    }
+
+    const icon = getFileIcon(contentType);
+    const color = getFileIconColor(contentType);
+    return `<div class="file-thumbnail d-flex align-items-center justify-content-center" style="background-color: ${color}20;">
+        <i class="fas ${icon} fa-2x" style="color: ${color};"></i>
+    </div>`;
+}
+
+function getFileIconColor(contentType) {
+    if (!contentType) return '#6c757d';
+
+    if (contentType.startsWith('image/')) return '#28a745';
+    if (contentType.startsWith('video/')) return '#dc3545';
+    if (contentType.startsWith('audio/')) return '#ffc107';
+    if (contentType.includes('pdf')) return '#dc3545';
+    if (contentType.includes('text') || contentType.includes('document')) return '#007bff';
+
+    return '#6c757d';
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function formatDate(dateString) {
+    return new Date(dateString).toLocaleDateString() + ' ' +
+           new Date(dateString).toLocaleTimeString();
+}
+
+function truncateText(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+}
+</script>
+{{end}}

@@ -1,0 +1,660 @@
+{{define "content"}}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Upload Files</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearUploads()">
+                <i class="fas fa-times"></i> Clear All
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAdvanced()">
+                <i class="fas fa-cog"></i> Advanced
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Area -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-body">
+                <div id="uploadArea" class="upload-area">
+                    <i class="fas fa-cloud-upload-alt fa-4x text-muted mb-3"></i>
+                    <h4 class="text-muted">Drag & Drop files here</h4>
+                    <p class="text-muted mb-3">or click to browse files</p>
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                        <i class="fas fa-folder-open"></i> Choose Files
+                    </button>
+                    <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFileSelect(this.files)">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Advanced Options (Hidden by default) -->
+<div class="row mb-4" id="advancedOptions" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header">
+                <h6 class="m-0 font-weight-bold text-primary">Advanced Upload Options</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="uploadCategory" class="form-label">Category</label>
+                            <select class="form-select" id="uploadCategory">
+                                <option value="">Select Category</option>
+                                <option value="documents">Documents</option>
+                                <option value="images">Images</option>
+                                <option value="videos">Videos</option>
+                                <option value="audio">Audio</option>
+                                <option value="archives">Archives</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="uploadTags" class="form-label">Tags (comma separated)</label>
+                            <input type="text" class="form-control" id="uploadTags" placeholder="tag1, tag2, tag3">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="uploadDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="uploadDescription" rows="3" placeholder="Optional description for uploaded files"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="makePublic">
+                                <label class="form-check-label" for="makePublic">
+                                    Make files public
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="autoRename" checked>
+                                <label class="form-check-label" for="autoRename">
+                                    Auto-rename duplicate files
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Queue -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Upload Queue</h6>
+                <div>
+                    <span class="badge bg-primary me-2" id="queueCount">0 files</span>
+                    <button type="button" class="btn btn-sm btn-success" onclick="startUpload()" id="startUploadBtn" disabled>
+                        <i class="fas fa-play"></i> Start Upload
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="uploadQueue">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-2x mb-2"></i>
+                        <p>No files in queue. Drag files or click to add.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload History -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Recent Uploads</h6>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshHistory()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="uploadHistory">
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-2"></i>
+                        <p>Loading upload history...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.upload-area {
+    border: 3px dashed #d1d3e2;
+    border-radius: 0.5rem;
+    padding: 4rem 2rem;
+    text-align: center;
+    background-color: #f8f9fc;
+    transition: all 0.3s;
+    cursor: pointer;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.upload-area:hover,
+.upload-area.dragover {
+    border-color: var(--primary-color);
+    background-color: rgba(78, 115, 223, 0.05);
+}
+
+.upload-area.dragover {
+    border-color: var(--success-color);
+    background-color: rgba(28, 200, 138, 0.05);
+}
+
+.upload-item {
+    border: 1px solid #e3e6f0;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    transition: all 0.3s;
+}
+
+.upload-item:hover {
+    background-color: #f8f9fc;
+}
+
+.upload-item.completed {
+    border-color: var(--success-color);
+    background-color: rgba(28, 200, 138, 0.05);
+}
+
+.upload-item.error {
+    border-color: var(--danger-color);
+    background-color: rgba(231, 74, 59, 0.05);
+}
+
+.upload-item.uploading {
+    border-color: var(--info-color);
+    background-color: rgba(54, 185, 204, 0.05);
+}
+
+.file-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.25rem;
+    margin-right: 1rem;
+}
+
+.file-icon i {
+    font-size: 1.5rem;
+}
+
+.file-info {
+    flex: 1;
+}
+
+.file-name {
+    font-weight: 600;
+    color: #5a5c69;
+    margin-bottom: 0.25rem;
+}
+
+.file-meta {
+    font-size: 0.875rem;
+    color: #858796;
+}
+
+.upload-progress {
+    width: 100%;
+    height: 8px;
+    margin-top: 0.5rem;
+}
+
+.upload-status {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.history-item {
+    border-bottom: 1px solid #e3e6f0;
+    padding: 1rem 0;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+</style>
+
+<script>
+let uploadQueue = [];
+let isUploading = false;
+let currentUploadIndex = 0;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadUploadHistory();
+    setupUploadArea();
+});
+
+function setupUploadArea() {
+    const uploadArea = document.getElementById('uploadArea');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    uploadArea.addEventListener('drop', handleDrop, false);
+}
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+function highlight(e) {
+    e.currentTarget.classList.add('dragover');
+}
+
+function unhighlight(e) {
+    e.currentTarget.classList.remove('dragover');
+}
+
+function handleDrop(e) {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    handleFiles(files);
+}
+
+function handleFileSelect(files) {
+    handleFiles(files);
+}
+
+function handleFiles(files) {
+    ([...files]).forEach(file => {
+        // Validate file
+        if (validateFile(file)) {
+            addToQueue(file);
+        }
+    });
+    updateQueueDisplay();
+}
+
+function validateFile(file) {
+    // Check file size (100MB limit for example)
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSize) {
+        showAlert(`File "${file.name}" is too large. Maximum size is 100MB.`, 'danger');
+        return false;
+    }
+
+    // Check file type (optional)
+    const allowedTypes = ['image/', 'text/', 'application/pdf', 'application/msword',
+                         'application/vnd.openxmlformats-officedocument', 'video/', 'audio/'];
+
+    const isAllowed = allowedTypes.some(type => file.type.startsWith(type)) ||
+                     file.type === '' || file.type === 'application/octet-stream';
+
+    if (!isAllowed) {
+        showAlert(`File "${file.name}" has an unsupported file type.`, 'warning');
+        return false;
+    }
+
+    return true;
+}
+
+function addToQueue(file) {
+    const uploadItem = {
+        id: Date.now() + Math.random(),
+        file: file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        status: 'queued',
+        progress: 0,
+        error: null,
+        uploadedAt: null,
+        sha1: null
+    };
+
+    uploadQueue.push(uploadItem);
+}
+
+function updateQueueDisplay() {
+    const queueContainer = document.getElementById('uploadQueue');
+    const queueCount = document.getElementById('queueCount');
+    const startBtn = document.getElementById('startUploadBtn');
+
+    queueCount.textContent = `${uploadQueue.length} file${uploadQueue.length !== 1 ? 's' : ''}`;
+    startBtn.disabled = uploadQueue.length === 0 || isUploading;
+
+    if (uploadQueue.length === 0) {
+        queueContainer.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-inbox fa-2x mb-2"></i>
+                <p>No files in queue. Drag files or click to add.</p>
+            </div>
+        `;
+        return;
+    }
+
+    queueContainer.innerHTML = uploadQueue.map(item => `
+        <div class="upload-item ${item.status}" id="upload-${item.id}">
+            <div class="d-flex align-items-center">
+                <div class="file-icon" style="background-color: ${getFileIconColor(item.type)}20;">
+                    <i class="fas ${getFileIcon(item.type)}" style="color: ${getFileIconColor(item.type)};"></i>
+                </div>
+                <div class="file-info">
+                    <div class="file-name">${item.name}</div>
+                    <div class="file-meta">
+                        ${formatBytes(item.size)} • ${item.type || 'Unknown type'}
+                        ${item.error ? `<br><span class="text-danger">${item.error}</span>` : ''}
+                    </div>
+                    ${item.status === 'uploading' || item.status === 'completed' ? `
+                        <div class="upload-progress">
+                            <div class="progress">
+                                <div class="progress-bar ${getProgressBarClass(item.status)}"
+                                     role="progressbar"
+                                     style="width: ${item.progress}%">
+                                    ${item.progress}%
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="upload-status ms-3">
+                    <span class="badge bg-${getStatusBadgeClass(item.status)}">
+                        ${getStatusText(item.status)}
+                    </span>
+                    ${item.status === 'queued' ? `
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2"
+                                onclick="removeFromQueue(${item.id})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function removeFromQueue(itemId) {
+    uploadQueue = uploadQueue.filter(item => item.id !== itemId);
+    updateQueueDisplay();
+}
+
+function clearUploads() {
+    if (uploadQueue.length === 0) return;
+
+    showConfirm(`Remove ${uploadQueue.length} file(s) from queue?`, function() {
+        uploadQueue = uploadQueue.filter(item => item.status === 'uploading');
+        updateQueueDisplay();
+    });
+}
+
+function startUpload() {
+    if (isUploading || uploadQueue.length === 0) return;
+
+    isUploading = true;
+    currentUploadIndex = 0;
+
+    const queuedItems = uploadQueue.filter(item => item.status === 'queued');
+    uploadFilesSequentially(queuedItems);
+}
+
+async function uploadFilesSequentially(items) {
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        item.status = 'uploading';
+        updateQueueDisplay();
+
+        try {
+            await uploadFile(item);
+            item.status = 'completed';
+            item.uploadedAt = new Date().toISOString();
+        } catch (error) {
+            item.status = 'error';
+            item.error = error.message;
+        }
+
+        updateQueueDisplay();
+    }
+
+    isUploading = false;
+    loadUploadHistory(); // Refresh history after upload completes
+}
+
+async function uploadFile(item) {
+    const formData = new FormData();
+    formData.append('file', item.file);
+
+    // Add metadata
+    const category = document.getElementById('uploadCategory').value;
+    const tags = document.getElementById('uploadTags').value;
+    const description = document.getElementById('uploadDescription').value;
+    const makePublic = document.getElementById('makePublic').checked;
+
+    if (category) formData.append('category', category);
+    if (tags) formData.append('tags', tags);
+    if (description) formData.append('description', description);
+    if (makePublic) formData.append('public', 'true');
+
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Progress tracking
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                item.progress = Math.round((e.loaded / e.total) * 100);
+                updateQueueDisplay();
+            }
+        });
+
+        xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        item.sha1 = response.data.sha1;
+                        resolve(response);
+                    } else {
+                        reject(new Error(response.error || 'Upload failed'));
+                    }
+                } catch (e) {
+                    reject(new Error('Invalid response from server'));
+                }
+            } else {
+                reject(new Error(`HTTP error: ${xhr.status}`));
+            }
+        });
+
+        xhr.addEventListener('error', () => {
+            reject(new Error('Network error'));
+        });
+
+        xhr.addEventListener('timeout', () => {
+            reject(new Error('Upload timeout'));
+        });
+
+        xhr.timeout = 300000; // 5 minutes
+        xhr.open('POST', '{{.basePath}}/api/v1/files/upload');
+        xhr.send(formData);
+    });
+}
+
+function toggleAdvanced() {
+    const advancedOptions = document.getElementById('advancedOptions');
+    const isHidden = advancedOptions.style.display === 'none';
+    advancedOptions.style.display = isHidden ? 'block' : 'none';
+}
+
+function loadUploadHistory() {
+    fetch('{{.basePath}}/api/files/list?limit=10&sort=created_at&order=desc')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderUploadHistory(data.data.files);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading upload history:', error);
+            document.getElementById('uploadHistory').innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                    <p>Unable to load upload history</p>
+                </div>
+            `;
+        });
+}
+
+function renderUploadHistory(files) {
+    const container = document.getElementById('uploadHistory');
+
+    if (files.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-history fa-2x mb-2"></i>
+                <p>No upload history</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = files.map(file => `
+        <div class="history-item">
+            <div class="d-flex align-items-center">
+                <div class="file-icon" style="background-color: ${getFileIconColor(file.content_type)}20;">
+                    <i class="fas ${getFileIcon(file.content_type)}" style="color: ${getFileIconColor(file.content_type)};"></i>
+                </div>
+                <div class="file-info flex-grow-1">
+                    <div class="file-name">${file.filename}</div>
+                    <div class="file-meta">
+                        ${formatBytes(file.size)} • ${formatDate(file.created_at)}
+                        <br><code class="small">${file.sha1.substring(0, 12)}</code>
+                    </div>
+                </div>
+                <div class="ms-3">
+                    <span class="status-badge badge bg-success">Completed</span>
+                </div>
+                <div class="ms-2">
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-primary" onclick="downloadFile('${file.sha1}')" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="shareFile('${file.sha1}')" title="Share">
+                            <i class="fas fa-share"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function refreshHistory() {
+    loadUploadHistory();
+}
+
+// Utility functions
+function getFileIcon(contentType) {
+    if (!contentType) return 'fa-file';
+
+    if (contentType.startsWith('image/')) return 'fa-file-image';
+    if (contentType.startsWith('video/')) return 'fa-file-video';
+    if (contentType.startsWith('audio/')) return 'fa-file-audio';
+    if (contentType.includes('pdf')) return 'fa-file-pdf';
+    if (contentType.includes('text') || contentType.includes('document')) return 'fa-file-alt';
+    if (contentType.includes('spreadsheet') || contentType.includes('excel')) return 'fa-file-excel';
+    if (contentType.includes('presentation') || contentType.includes('powerpoint')) return 'fa-file-powerpoint';
+    if (contentType.includes('zip') || contentType.includes('compressed')) return 'fa-file-archive';
+
+    return 'fa-file';
+}
+
+function getFileIconColor(contentType) {
+    if (!contentType) return '#6c757d';
+
+    if (contentType.startsWith('image/')) return '#28a745';
+    if (contentType.startsWith('video/')) return '#dc3545';
+    if (contentType.startsWith('audio/')) return '#ffc107';
+    if (contentType.includes('pdf')) return '#dc3545';
+    if (contentType.includes('text') || contentType.includes('document')) return '#007bff';
+
+    return '#6c757d';
+}
+
+function getStatusBadgeClass(status) {
+    switch(status) {
+        case 'completed': return 'success';
+        case 'uploading': return 'primary';
+        case 'error': return 'danger';
+        case 'queued': return 'secondary';
+        default: return 'secondary';
+    }
+}
+
+function getProgressBarClass(status) {
+    switch(status) {
+        case 'completed': return 'bg-success';
+        case 'uploading': return 'bg-primary';
+        case 'error': return 'bg-danger';
+        default: return 'bg-secondary';
+    }
+}
+
+function getStatusText(status) {
+    switch(status) {
+        case 'completed': return 'Completed';
+        case 'uploading': return 'Uploading';
+        case 'error': return 'Error';
+        case 'queued': return 'Queued';
+        default: return 'Unknown';
+    }
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+}
+
+function downloadFile(sha1) {
+    window.open(`{{.basePath}}/api/v1/files/${sha1}/download`, '_blank');
+}
+
+function shareFile(sha1) {
+    // Implement share functionality
+    showAlert('Share functionality coming soon!', 'info');
+}
+</script>
+{{end}}
