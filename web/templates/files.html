@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - IO Storage</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-database text-2xl mr-3"></i>
+                    <span class="text-xl font-bold">IO Storage</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="hover:bg-blue-700 px-3 py-2 rounded text-sm font-medium">仪表板</a>
+                    <a href="/files" class="bg-blue-700 px-3 py-2 rounded text-sm font-medium">文件管理</a>
+                    <a href="/upload" class="hover:bg-blue-700 px-3 py-2 rounded text-sm font-medium">上传文件</a>
+                    <a href="/monitor" class="hover:bg-blue-700 px-3 py-2 rounded text-sm font-medium">系统监控</a>
+                    <a href="/settings" class="hover:bg-blue-700 px-3 py-2 rounded text-sm font-medium">设置</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Page Header -->
+        <div class="mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">文件管理</h1>
+                <p class="mt-2 text-gray-600">管理和浏览所有存储的文件</p>
+            </div>
+            <a href="/upload" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg inline-flex items-center">
+                <i class="fas fa-upload mr-2"></i>
+                上传文件
+            </a>
+        </div>
+
+        <!-- Filters -->
+        <div class="bg-white p-4 rounded-lg shadow mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">搜索文件</label>
+                    <input type="text" id="search-input" placeholder="输入文件名搜索..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                           value="{{.Search}}">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">文件类型</label>
+                    <select id="content-type-filter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">全部类型</option>
+                        <option value="image/jpeg">JPEG图片</option>
+                        <option value="image/png">PNG图片</option>
+                        <option value="application/pdf">PDF文档</option>
+                        <option value="text/plain">文本文件</option>
+                        <option value="application/zip">ZIP压缩包</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">上传者</label>
+                    <input type="text" id="uploaded-by-filter" placeholder="输入上传者名称..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">可见性</label>
+                    <select id="visibility-filter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">全部</option>
+                        <option value="true">公开</option>
+                        <option value="false">私有</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    显示 <span id="showing-from">0</span> - <span id="showing-to">0</span> 条，共 <span id="total-count">0</span> 条记录
+                </div>
+                <button onclick="applyFilters()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                    <i class="fas fa-filter mr-1"></i> 应用筛选
+                </button>
+            </div>
+        </div>
+
+        <!-- Files Table -->
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <input type="checkbox" id="select-all" class="rounded border-gray-300">
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">文件名</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">大小</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">上传者</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">上传时间</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="files-table-body">
+                        <tr>
+                            <td colspan="7" class="px-6 py-12 text-center">
+                                <i class="fas fa-spinner fa-spin text-4xl text-blue-500 mb-4"></i>
+                                <p class="text-gray-500">正在加载文件列表...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                <div class="flex-1 flex justify-between sm:hidden">
+                    <button onclick="previousPage()" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        上一页
+                    </button>
+                    <button onclick="nextPage()" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                        下一页
+                    </button>
+                </div>
+                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                        <p class="text-sm text-gray-700">
+                            第 <span id="current-page" class="font-medium">{{.Page}}</span> 页，
+                            共 <span id="total-pages" class="font-medium">--</span> 页
+                        </p>
+                    </div>
+                    <div>
+                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                            <button onclick="previousPage()" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <div id="pagination-numbers" class="flex">
+                                <!-- Pagination numbers will be inserted here -->
+                            </div>
+                            <button onclick="nextPage()" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Batch Actions -->
+        <div id="batch-actions" class="hidden mt-4 bg-white p-4 rounded-lg shadow">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-600">
+                    已选择 <span id="selected-count" class="font-medium">0</span> 个文件
+                </div>
+                <div class="space-x-2">
+                    <button onclick="downloadSelected()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                        <i class="fas fa-download mr-1"></i> 下载
+                    </button>
+                    <button onclick="deleteSelected()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm">
+                        <i class="fas fa-trash mr-1"></i> 删除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Metadata Modal -->
+    <div id="edit-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">编辑文件元数据</h3>
+                <form id="edit-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">文件名</label>
+                        <input type="text" id="edit-filename" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                        <textarea id="edit-description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">标签 (逗号分隔)</label>
+                        <input type="text" id="edit-tags" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div class="mb-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="edit-public" class="rounded border-gray-300">
+                            <span class="ml-2 text-sm text-gray-700">公开文件</span>
+                        </label>
+                    </div>
+                    <div class="flex justify-end space-x-2">
+                        <button type="button" onclick="closeEditModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded text-sm">
+                            取消
+                        </button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/files.js"></script>
+</body>
+</html>

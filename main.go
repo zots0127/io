@@ -44,15 +44,28 @@ func main() {
 			defer metadataDB.Close()
 		}
 	}
+
+	// Create API instance
+	api := NewAPI(storage, metadataDB, config.API.Key)
+
+	// Create Web interface instance
+	webInterface := NewWebInterface(api, storage, metadataDB)
 	
 	switch config.API.Mode {
 	case "native":
-		// Native API only
-		api := NewAPI(storage, metadataDB, config.API.Key)
+		// Native API with Web interface
 		router := gin.Default()
+
+		// Register API routes
 		api.RegisterRoutes(router)
-		
-		log.Printf("Starting native API server on port %s", config.API.Port)
+
+		// Register Web interface routes
+		webInterface.RegisterRoutes(router)
+
+		log.Printf("Starting IO Storage with Web interface on port %s", config.API.Port)
+		log.Printf("Web interface: http://localhost:%s", config.API.Port)
+		log.Printf("API endpoints: http://localhost:%s/api", config.API.Port)
+
 		if err := router.Run(":" + config.API.Port); err != nil {
 			log.Fatal("Failed to start server:", err)
 		}
@@ -80,14 +93,17 @@ func main() {
 		// Both APIs running on different ports
 		errChan := make(chan error, 2)
 		
-		// Start native API
+		// Start native API with Web interface
 		go func() {
 			api := NewAPI(storage, metadataDB, config.API.Key)
+			webInterface := NewWebInterface(api, storage, metadataDB)
 			router := gin.New()
 			router.Use(gin.Recovery())
 			api.RegisterRoutes(router)
-			
-			log.Printf("Starting native API server on port %s", config.API.Port)
+			webInterface.RegisterRoutes(router)
+
+			log.Printf("Starting native API server with Web interface on port %s", config.API.Port)
+			log.Printf("Web interface: http://localhost:%s", config.API.Port)
 			if err := router.Run(":" + config.API.Port); err != nil {
 				errChan <- err
 			}
