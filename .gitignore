@@ -138,3 +138,14 @@ quick-push.sh
 push-to-github.sh
 github-complete.sh
 build.sh
+
+# Test and temporary files
+/uploads
+io.db.metadata
+performance_test
+test-config.yaml
+test_config.yaml
+test_perf.yaml
+app.log
+final_test.log
+large_file.tmp
