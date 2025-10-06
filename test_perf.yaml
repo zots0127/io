@@ -1,0 +1,15 @@
+storage:
+  path: "./test_storage"
+  database: "./test_storage.db"
+
+api:
+  port: "8080"
+  key: "test-api-key-12345"
+  mode: "native"
+
+s3:
+  enabled: false
+  port: "9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  region: "us-east-1"

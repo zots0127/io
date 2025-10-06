@@ -9,12 +9,12 @@ import (
 
 func main() {
 	config := LoadConfig()
-	
+
 	if err := InitDB(config.Storage.Database); err != nil {
 		log.Fatal("Failed to initialize database:", err)
 	}
 	defer CloseDB()
-	
+
 	// Initialize S3 tables if S3 mode is enabled
 	if config.API.Mode == "s3" || config.API.Mode == "hybrid" {
 		if err := InitS3Tables(); err != nil {
@@ -24,17 +24,31 @@ func main() {
 			log.Fatal("Failed to initialize multipart tables:", err)
 		}
 	}
-	
+
 	if err := os.MkdirAll(config.Storage.Path, 0755); err != nil {
 		log.Fatal("Failed to create storage directory:", err)
 	}
-	
+
 	storage := NewStorage(config.Storage.Path)
+
+	// Initialize metadata database
+	var metadataDB *MetadataDB
+	if config.Storage.Database != "" {
+		metadataDBPath := config.Storage.Database + ".metadata"
+		var err error
+		metadataDB, err = NewMetadataDB(metadataDBPath)
+		if err != nil {
+			log.Printf("Warning: Failed to initialize metadata database: %v", err)
+			metadataDB = nil
+		} else {
+			defer metadataDB.Close()
+		}
+	}
 	
 	switch config.API.Mode {
 	case "native":
 		// Native API only
-		api := NewAPI(storage, config.API.Key)
+		api := NewAPI(storage, metadataDB, config.API.Key)
 		router := gin.Default()
 		api.RegisterRoutes(router)
 		
@@ -68,7 +82,7 @@ func main() {
 		
 		// Start native API
 		go func() {
-			api := NewAPI(storage, config.API.Key)
+			api := NewAPI(storage, metadataDB, config.API.Key)
 			router := gin.New()
 			router.Use(gin.Recovery())
 			api.RegisterRoutes(router)
