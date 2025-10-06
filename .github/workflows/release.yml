@@ -123,10 +123,79 @@ jobs:
           
           # Generate summary
           echo "## Test Summary" >> integration-tests.md
+          # Test Web Interface
+          echo "## Web Interface Tests" >> integration-tests.md
+          echo "" >> integration-tests.md
+
+          echo "### Dashboard Accessibility" >> integration-tests.md
+          DASH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/)
+          if [ "$DASH_STATUS" = "200" ]; then
+            echo "✅ Dashboard accessible - HTTP $DASH_STATUS" >> integration-tests.md
+          else
+            echo "❌ Dashboard not accessible - HTTP $DASH_STATUS" >> integration-tests.md
+            kill $IO_PID
+            exit 1
+          fi
+          echo "" >> integration-tests.md
+
+          echo "### File Management Interface" >> integration-tests.md
+          FILES_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/files)
+          if [ "$FILES_STATUS" = "200" ]; then
+            echo "✅ Files page accessible - HTTP $FILES_STATUS" >> integration-tests.md
+          else
+            echo "❌ Files page not accessible - HTTP $FILES_STATUS" >> integration-tests.md
+            kill $IO_PID
+            exit 1
+          fi
+          echo "" >> integration-tests.md
+
+          echo "### Web API Functionality" >> integration-tests.md
+          echo "test web content" > webtest.txt
+          WEB_RESPONSE=$(curl -s -X POST http://localhost:8080/api/web/files/upload \
+            -F "file=@webtest.txt" \
+            -F "uploaded_by=test_user" \
+            -F "description=web interface test")
+          WEB_SHA1=$(echo $WEB_RESPONSE | grep -o '"sha1":"[^"]*' | cut -d'"' -f4)
+          if [ -n "$WEB_SHA1" ]; then
+            echo "✅ Web API upload successful - SHA1: $WEB_SHA1" >> integration-tests.md
+
+            # Test download
+            curl -s http://localhost:8080/api/web/files/$WEB_SHA1/download -o web_downloaded.txt
+            if diff webtest.txt web_downloaded.txt > /dev/null; then
+              echo "✅ Web API download successful - Content matches" >> integration-tests.md
+            else
+              echo "❌ Web API download failed - Content mismatch" >> integration-tests.md
+              kill $IO_PID
+              exit 1
+            fi
+          else
+            echo "❌ Web API upload failed" >> integration-tests.md
+            kill $IO_PID
+            exit 1
+          fi
+          echo "" >> integration-tests.md
+
+          echo "### Monitoring Interface" >> integration-tests.md
+          MONITOR_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/monitor)
+          MONITOR_API=$(curl -s http://localhost:8080/api/web/monitor)
+          if [ "$MONITOR_STATUS" = "200" ] && echo "$MONITOR_API" | grep -q "timestamp"; then
+            echo "✅ Monitor interface working - HTTP $MONITOR_STATUS" >> integration-tests.md
+          else
+            echo "❌ Monitor interface not working - HTTP $MONITOR_STATUS" >> integration-tests.md
+            kill $IO_PID
+            exit 1
+          fi
+          echo "" >> integration-tests.md
+
+          # Generate summary
+          echo "## Test Summary" >> integration-tests.md
           echo "- Native API: ✅ Passed" >> integration-tests.md
           echo "- S3 API: ✅ Passed" >> integration-tests.md
+          echo "- Web Interface: ✅ Passed" >> integration-tests.md
+          echo "- Web API: ✅ Passed" >> integration-tests.md
+          echo "- Monitoring: ✅ Passed" >> integration-tests.md
           echo "- All tests completed successfully!" >> integration-tests.md
-          
+
           kill $IO_PID
 
       - name: Generate Test Report
@@ -275,7 +344,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') || contains(github.ref_name, 'rc') }}
           files: |
             artifacts/*/io-*
             checksums.txt
@@ -283,13 +352,33 @@ jobs:
             coverage.html
             coverage-summary.txt
           body: |
+            ## 🎉 IO Storage Release - Web Management Interface
+
+            This release includes a comprehensive MinIO-like web management interface!
+
+            ### ✨ New Features
+            - 🖥️ Modern responsive Dashboard with real-time statistics
+            - 📁 Complete file management interface with advanced filtering
+            - 📤 Drag-and-drop file upload with metadata configuration
+            - 📊 Real-time system monitoring with Chart.js visualization
+            - ⚙️ Administrative settings interface
+            - 📱 Mobile-responsive design with Tailwind CSS
+
+            ### 🌐 Web Interface Access
+            After running the binary, access:
+            - Dashboard: http://localhost:8080/
+            - Files: http://localhost:8080/files
+            - Upload: http://localhost:8080/upload
+            - Monitor: http://localhost:8080/monitor
+            - Settings: http://localhost:8080/settings
+
             ## Test Results
-            
+
             ✅ **All tests passed!** See attached test reports for details:
-            - `test-report.md` - Full test execution report
+            - `test-report.md` - Full test execution report including web interface tests
             - `coverage.html` - Interactive code coverage report
             - `coverage-summary.txt` - Coverage summary
-            
+
             ## Download
 
             | Platform | Architecture | File |
