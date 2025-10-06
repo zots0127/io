@@ -1,8 +1,6 @@
-package entities
+package types
 
-import (
-	"time"
-)
+import "time"
 
 // File represents a stored file in the system
 type File struct {
@@ -33,13 +31,40 @@ type FileMetadata struct {
 
 // MetadataFilter represents filtering criteria for metadata queries
 type MetadataFilter struct {
-	FileName     string     `json:"file_name"`
-	ContentType  string     `json:"content_type"`
-	UploadedBy   string     `json:"uploaded_by"`
-	Tags         []string   `json:"tags"`
-	IsPublic     *bool      `json:"is_public"`
-	MinSize      *int64     `json:"min_size"`
-	MaxSize      *int64     `json:"max_size"`
-	CreatedAfter *time.Time `json:"created_after"`
+	FileName      string     `json:"file_name"`
+	ContentType   string     `json:"content_type"`
+	UploadedBy    string     `json:"uploaded_by"`
+	Tags          []string   `json:"tags"`
+	IsPublic      *bool      `json:"is_public"`
+	MinSize       *int64     `json:"min_size"`
+	MaxSize       *int64     `json:"max_size"`
+	CreatedAfter  *time.Time `json:"created_after"`
 	CreatedBefore *time.Time `json:"created_before"`
+	Limit         int        `json:"limit"`
+	Offset        int        `json:"offset"`
+	OrderBy       string     `json:"order_by"`
+	OrderDir      string     `json:"order_dir"`
+}
+
+// APIResponse represents a standard API response
+type APIResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   string      `json:"error,omitempty"`
+}
+
+// FileUploadResponse represents response for file upload
+type FileUploadResponse struct {
+	SHA1    string `json:"sha1"`
+	Size    int64  `json:"size"`
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// FileExistsResponse represents response for file existence check
+type FileExistsResponse struct {
+	Exists bool   `json:"exists"`
+	SHA1   string `json:"sha1,omitempty"`
+	Size   int64  `json:"size,omitempty"`
 }
