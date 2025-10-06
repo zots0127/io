@@ -508,7 +508,7 @@ func verifyFileContent(sha1 string, expectedContent []byte) error {
 
 	req.Header.Set("X-API-Key", testAPIKey)
 
-	client := &http.Client{Timeout: 30 * time.Second)
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -539,7 +539,7 @@ func deleteFile(sha1 string) error {
 
 	req.Header.Set("X-API-Key", testAPIKey)
 
-	client := &http.Client{Timeout: 10 * time.Second)
+	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
